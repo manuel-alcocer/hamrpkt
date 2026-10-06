@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hamrpkt"
+# Single source of truth: src/hamrpkt/__init__.py
+dynamic = ["version"]
+description = "Keyboard-only packet radio terminal with the look of hamrlog"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Manuel Alcocer", email = "manuel@alcocer.net" }]
+keywords = ["ham radio", "amateur radio", "packet radio", "ax25", "agwpe", "linbpq", "tui"]
+dependencies = [
+    "textual>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[project.scripts]
+hamrpkt = "hamrpkt.cli:main"
+
+[tool.hatch.version]
+path = "src/hamrpkt/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hamrpkt"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff.lint.per-file-ignores]
+# Catalog entries are whole sentences; splitting them hurts more than it helps.
+"src/hamrpkt/i18n.py" = ["E501"]
