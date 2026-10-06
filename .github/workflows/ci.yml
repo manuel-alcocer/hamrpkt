@@ -55,11 +55,13 @@ jobs:
           uv venv /tmp/clean
           uv pip install --python /tmp/clean/bin/python dist/*.whl
           /tmp/clean/bin/hamrpkt --version
-          # The stylesheet is package data read at import time: check the
-          # wheel really carries it.
+          # The stylesheet and the translations are package data: check the
+          # wheel really carries them.
           /tmp/clean/bin/python -c "
+          from hamrpkt import i18n
           from hamrpkt.tui.app import HamrpktApp
           assert '#statusline' in HamrpktApp.CSS, 'no stylesheet in the wheel'
+          assert i18n.load_catalog('es'), 'no Spanish translations in the wheel'
           "
 
       - uses: actions/upload-artifact@v7

@@ -1,161 +1,183 @@
-"""Minimal translation layer.
+"""Translations of everything the operator reads.
 
-Messages are written in English in the code and looked up in a catalog at
-display time. Spanish is the only catalog for now; it is picked from the
-usual locale variables, or forced with ``HAMRPKT_LANG``.
+The source language is English: every user-facing string in the code is
+written in English and wrapped in ``_()``. Other languages live in gettext
+``.po`` files under ``hamrpkt/locales/<lang>/``; every ``.po`` file in that
+folder is read, so translations can be split by area.
+
+The ``.po`` files are parsed directly: no compile step, no ``.mo`` files to
+keep in sync, and nothing extra to bundle.
+
+Usage::
+
+    from hamrpkt.i18n import _, N_
+
+    entry.feedback(_("Connected to {call}").format(call=call))
+
+    # Module level tables are built at import time, before the language is
+    # known, so they hold the English text marked with N_() and translate it
+    # with _() where it is shown.
+    TITLES = {"monitor": N_("Monitor")}
+    title = _(TITLES["monitor"])
 """
 
 from __future__ import annotations
 
+import locale
+import logging
 import os
+import sys
+from importlib import resources
 
-#: Listed by /help. Kept here because it doubles as its own catalog key.
-HELP_TEXT = (
-    "/c [port] CALL [v DIGI …]    connect (also F4)\n"
-    "/c bpq:CALL                  enter a station of LinBPQ (bpq:EA7KLX-1 BBS…)\n"
-    "/d                           disconnect (also F5)\n"
-    "/ui DEST text                send an unconnected UI frame\n"
-    "/port N                      default radio port\n"
-    "/mon                         monitor on/off (also F10)\n"
-    "/clear                       clear the view (also Ctrl+L)\n"
-    "/reconnect                   redo the link with the node (also F6)\n"
-    "/quit                        quit (also Ctrl+Q)\n"
-    "//text                       send a line starting with /"
-)
+logger = logging.getLogger(__name__)
 
-ES: dict[str, str] = {
-    # Status line
-    "no callsign": "sin indicativo",
-    "LINK": "ENLACE",
-    "PORT": "PUERTO",
-    "SESSION": "SESIÓN",
-    "offline": "sin enlace",
-    "connecting": "conectando",
-    "idle": "en espera",
-    "node": "nodo",
-    # Frame titles
-    "Terminal": "Terminal",
-    "Monitor": "Monitor",
-    "Heard stations": "Estaciones oídas",
-    # Footer
-    "frames": "tramas",
-    "heard": "oídas",
-    "F1 Terminal · F2 Monitor · F3 Heard · Ctrl+Q Quit":
-        "F1 Terminal · F2 Monitor · F3 Oídas · Ctrl+Q Salir",
-    "F1 Terminal · F2 Monitor · F3 Heard": "F1 Terminal · F2 Monitor · F3 Oídas",
-    # Entry
-    "CMD": "CMD",
-    "Enter sends · /c CALL connects · /d disconnects · ↑↓ history · F4 connect · F5 disconnect · F9 setup · /help":
-        "Enter envía · /c IND conecta · /d desconecta · ↑↓ histórico · F4 conectar · F5 desconectar · F9 ajustes · /help",
-    "↑↓ choose station · Enter connects · F1 back to the terminal":
-        "↑↓ elige estación · Enter conecta · F1 vuelve al terminal",
-    "PgUp/PgDn scroll · Ctrl+L clear · F10 monitor on/off · F1 back to the terminal":
-        "RePág/AvPág desplaza · Ctrl+L limpia · F10 monitor sí/no · F1 vuelve al terminal",
-    # Heard table
-    "CALL": "INDICATIVO",
-    "LAST HEARD": "ÚLTIMA VEZ",
-    "FRAMES": "TRAMAS",
-    "TO": "A",
-    "VIA": "VÍA",
-    # Messages
-    "Connecting to {host}:{port} ({kind})…": "Conectando con {host}:{port} ({kind})…",
-    "Link up with {host}:{port}": "Enlace establecido con {host}:{port}",
-    "Link lost: {error}": "Enlace perdido: {error}",
-    "Link closed": "Enlace cerrado",
-    "Cannot reach {host}:{port}: {error}": "No puedo llegar a {host}:{port}: {error}",
-    "F6 or /reconnect to try again": "F6 o /reconnect para reintentar",
-    "Connected to {call}": "Conectado con {call}",
-    "Disconnected from {call}": "Desconectado de {call}",
-    "Calling {call}…": "Llamando a {call}…",
-    "Not connected. Use /c CALL to connect, or /ui DEST text for an unproto frame.":
-        "No hay conexión. Usa /c IND para conectar, o /ui DEST texto para una trama sin conexión.",
-    "No link. F6 or /reconnect": "No hay enlace. F6 o /reconnect",
-    "Already connected to {call}: /d first": "Ya hay conexión con {call}: primero /d",
-    "Callsign {call} registered": "Indicativo {call} registrado",
-    "The node refused to register {call}": "El nodo no acepta registrar {call}",
-    "Radio ports: {ports}": "Puertos de radio: {ports}",
-    "AGWPE server version {version}": "Servidor AGWPE versión {version}",
-    "Monitor on": "Monitor activado",
-    "Monitor off": "Monitor desactivado",
-    "The monitor needs an AGWPE link": "El monitor necesita un enlace AGWPE",
-    "Port set to {port}": "Puerto fijado en {port}",
-    "Unknown command: {cmd}. /help lists them": "Orden desconocida: {cmd}. /help las enumera",
-    "Usage: {usage}": "Uso: {usage}",
-    "Settings saved": "Ajustes guardados",
-    "Set your callsign and the node address with F9": "Configura tu indicativo y la dirección del nodo con F9",
-    "Session log: {path}": "Registro de la sesión: {path}",
-    "Nothing to disconnect": "No hay nada que desconectar",
-    "No station selected": "No hay estación seleccionada",
-    "Logging in as {user}": "Entrando como {user}",
-    "Commands": "Órdenes",
-    HELP_TEXT: (
-        "/c [puerto] IND [v DIGI …]   conectar (también F4)\n"
-        "/c bpq:IND                   entrar en una estación de LinBPQ (bpq:EA7KLX-1 BBS…)\n"
-        "/d                           desconectar (también F5)\n"
-        "/ui DEST texto               enviar una trama UI sin conexión\n"
-        "/port N                      puerto de radio por defecto\n"
-        "/mon                         monitor sí/no (también F10)\n"
-        "/clear                       limpiar la vista (también Ctrl+L)\n"
-        "/reconnect                   rehacer el enlace con el nodo (también F6)\n"
-        "/quit                        salir (también Ctrl+Q)\n"
-        "//texto                      enviar una línea que empieza por /"
-    ),
-    # Dialogs
-    "Connect": "Conectar",
-    "Callsign": "Indicativo",
-    "Via (digipeaters)": "Vía (digipetidores)",
-    "Radio port": "Puerto de radio",
-    "Setup": "Ajustes",
-    "My callsign": "Mi indicativo",
-    "Link type": "Tipo de enlace",
-    "Node host": "Equipo del nodo",
-    "TCP port": "Puerto TCP",
-    "User": "Usuario",
-    "Password": "Contraseña",
-    "Monitor at start": "Monitor al arrancar",
-    "agw or telnet": "agw o telnet",
-    "yes or no": "sí o no",
-    "yes": "sí",
-    "no": "no",
-    "AGWPE 8000 · Telnet 8010": "AGWPE 8000 · Telnet 8010",
-    "Only if the node asks for it": "Solo si el nodo lo pide",
-    "Save": "Guardar",
-    "LinBPQ Telnet port": "Puerto Telnet LinBPQ",
-    "LinBPQ user": "Usuario LinBPQ",
-    "LinBPQ password": "Contraseña LinBPQ",
-    "for /c bpq:CALL": "para /c bpq:IND",
-    "Set the LinBPQ user and password with F9": "Pon el usuario y la contraseña de LinBPQ en F9",
-    "Cancel (Esc)": "Cancelar (Esc)",
-    "Yes (Y)": "Sí (S)",
-    "No (Esc)": "No (Esc)",
-    "Tab next field · Enter or Ctrl+S save · Esc cancel":
-        "Tab campo siguiente · Enter o Ctrl+S guarda · Esc cancela",
-    "←→ choose · Enter confirms · Y yes · N or Esc no":
-        "←→ elige · Enter confirma · S sí · N o Esc no",
-    "Still connected to {call}. Disconnect and quit?": "Sigues conectado con {call}. ¿Desconectar y salir?",
-    "The link type must be agw or telnet": "El tipo de enlace debe ser agw o telnet",
-    "The TCP port must be a number": "El puerto TCP debe ser un número",
-    "The radio port must be a number from 1": "El puerto de radio debe ser un número desde 1",
-    "The callsign is required": "Falta el indicativo",
-}
+#: Overrides the language picked from the system locale, e.g. "en" or "es".
+LANG_ENV = "HAMRPKT_LANG"
+
+#: Languages with a catalog, plus English, which is the source.
+SOURCE_LANGUAGE = "en"
+AVAILABLE = ("en", "es")
+
+_catalog: dict[str, str] | None = None
+_language: str | None = None
 
 
-def _pick_catalog() -> dict[str, str]:
-    for var in ("HAMRPKT_LANG", "LC_ALL", "LC_MESSAGES", "LANG"):
-        value = os.environ.get(var, "")
-        if value:
-            return ES if value.lower().startswith("es") else {}
-    return {}
+#: Windows names its locales in English words ("Spanish_Spain"), not codes.
+WINDOWS_NAMES = {"spanish": "es", "english": "en"}
 
 
-_CATALOG = _pick_catalog()
+def detect_language() -> str:
+    """The language to use: HAMRPKT_LANG, then the system's, then English."""
+    candidates = [os.environ.get(LANG_ENV, "")]
+    candidates += [os.environ.get(name, "") for name in ("LC_ALL", "LC_MESSAGES", "LANG")]
+    candidates.append(_windows_ui_language())
+    try:
+        candidates.append(locale.getlocale()[0] or "")
+    except ValueError:  # pragma: no cover - unusual locale settings
+        pass
+    for value in candidates:
+        code = language_code(value)
+        if code in AVAILABLE:
+            return code
+    return SOURCE_LANGUAGE
+
+
+def language_code(value: str) -> str:
+    """"es_ES.UTF-8", "es-ES", "Spanish_Spain.1252" -> "es"."""
+    head = value.split(".")[0].split("_")[0].split("-")[0].strip().lower()
+    return WINDOWS_NAMES.get(head, head)
+
+
+def _windows_ui_language() -> str:
+    """The language of the Windows interface, e.g. "es_ES"; empty elsewhere.
+
+    Windows rarely sets LANG, and Python's locale reflects the regional
+    format rather than the language the user reads, so ask the system.
+    """
+    if sys.platform != "win32":
+        return ""
+    try:
+        import ctypes
+
+        lcid = ctypes.windll.kernel32.GetUserDefaultUILanguage()  # type: ignore[attr-defined]
+        return locale.windows_locale.get(lcid, "")
+    except (AttributeError, OSError):  # pragma: no cover - only on odd systems
+        return ""
+
+
+def set_language(language: str | None = None) -> str:
+    """Load the catalog for ``language`` (detected when None) and use it."""
+    global _catalog, _language
+    _language = language or detect_language()
+    _catalog = {} if _language == SOURCE_LANGUAGE else load_catalog(_language)
+    return _language
+
+
+def language() -> str:
+    if _language is None:
+        set_language()
+    return _language  # type: ignore[return-value]
 
 
 def _(message: str) -> str:
-    """Translate ``message`` into the user's language when a catalog exists."""
-    return _CATALOG.get(message, message)
+    """The translation of ``message``, or ``message`` itself when there is none."""
+    if _catalog is None:
+        set_language()
+    return (_catalog or {}).get(message) or message
 
 
-def tr(message: str, **values: object) -> str:
-    """Translate a template, then fill it in, so catalogs see the template."""
-    return _(message).format(**values)
+def N_(message: str) -> str:  # noqa: N802 - the gettext convention
+    """Mark a string for translation without translating it yet."""
+    return message
+
+
+# --------------------------------------------------------------- .po files --
+def load_catalog(language: str) -> dict[str, str]:
+    """Every msgid -> msgstr of the ``.po`` files of one language."""
+    catalog: dict[str, str] = {}
+    try:
+        folder = resources.files("hamrpkt").joinpath("locales", language)
+        files = sorted(
+            (entry for entry in folder.iterdir() if entry.name.endswith(".po")),
+            key=lambda entry: entry.name,
+        )
+    except (FileNotFoundError, NotADirectoryError, OSError):
+        logger.warning("i18n: no translations for %s", language)
+        return catalog
+    for source in files:
+        catalog.update(parse_po(source.read_text(encoding="utf-8")))
+    return catalog
+
+
+def parse_po(text: str) -> dict[str, str]:
+    """Translations in the text of a ``.po`` file.
+
+    Handles what these files use: comments, ``msgid``/``msgstr`` pairs and
+    strings continued over several quoted lines. Empty translations and the
+    header entry are left out, so the English text shows instead.
+    """
+    entries: dict[str, str] = {}
+    msgid: list[str] | None = None
+    msgstr: list[str] | None = None
+    current: list[str] | None = None
+
+    def flush() -> None:
+        if msgid is not None and msgstr is not None:
+            key, value = "".join(msgid), "".join(msgstr)
+            if key and value:
+                entries[key] = value
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("msgid "):
+            flush()
+            msgid, msgstr = [_unquote(line[6:])], None
+            current = msgid
+        elif line.startswith("msgstr "):
+            msgstr = [_unquote(line[7:])]
+            current = msgstr
+        elif line.startswith('"') and current is not None:
+            current.append(_unquote(line))
+    flush()
+    return entries
+
+
+def _unquote(token: str) -> str:
+    token = token.strip()
+    if len(token) < 2 or token[0] != '"' or token[-1] != '"':
+        return ""
+    body = token[1:-1]
+    out: list[str] = []
+    index = 0
+    escapes = {"n": "\n", "t": "\t", '"': '"', "\\": "\\"}
+    while index < len(body):
+        char = body[index]
+        if char == "\\" and index + 1 < len(body):
+            out.append(escapes.get(body[index + 1], body[index + 1]))
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)

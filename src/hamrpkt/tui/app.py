@@ -22,7 +22,7 @@ from textual.widgets import Input
 
 from .. import config as config_module
 from ..config import DEFAULT_TCP_PORTS, LINK_TYPES, Config
-from ..i18n import HELP_TEXT, _, tr
+from ..i18n import N_, _
 from ..link.agw import AgwLink, parse_monitor
 from ..link.base import Link, LinkEvent
 from ..link.telnet import TelnetLink
@@ -37,19 +37,36 @@ from .widgets import (
     TextView,
 )
 
-#: Frame title and help line of each view.
+#: Frame title and help line of each view, translated where they are shown.
 VIEWS: dict[str, tuple[str, str]] = {
     "terminal": (
-        "Terminal",
-        "Enter sends · /c CALL connects · /d disconnects · ↑↓ history · F4 connect · "
-        "F5 disconnect · F9 setup · /help",
+        N_("Terminal"),
+        N_("Enter sends · /c CALL connects · /d disconnects · ↑↓ history · F4 connect · "
+           "F5 disconnect · F9 setup · /help"),
     ),
     "monitor": (
-        "Monitor",
-        "PgUp/PgDn scroll · Ctrl+L clear · F10 monitor on/off · F1 back to the terminal",
+        N_("Monitor"),
+        N_("PgUp/PgDn scroll · Ctrl+L clear · F10 monitor on/off · F1 back to the terminal"),
     ),
-    "heard": ("Heard stations", "↑↓ choose station · Enter connects · F1 back to the terminal"),
+    "heard": (
+        N_("Heard stations"),
+        N_("↑↓ choose station · Enter connects · F1 back to the terminal"),
+    ),
 }
+
+#: Listed by /help.
+HELP_TEXT = N_(
+    "/c [port] CALL [v DIGI …]    connect (also F4)\n"
+    "/c bpq:CALL                  enter a station of LinBPQ (bpq:EA7KLX-1 BBS…)\n"
+    "/d                           disconnect (also F5)\n"
+    "/ui DEST text                send an unconnected UI frame\n"
+    "/port N                      default radio port\n"
+    "/mon                         monitor on/off (also F10)\n"
+    "/clear                       clear the view (also Ctrl+L)\n"
+    "/reconnect                   redo the link with the node (also F6)\n"
+    "/quit                        quit (also Ctrl+Q)\n"
+    "//text                       send a line starting with /"
+)
 
 #: How many typed lines the up/down keys can recall.
 LINE_HISTORY_LIMIT = 200
@@ -222,8 +239,8 @@ class HamrpktApp(App[None]):
         self._end_session()
         self.link_state = "connecting"
         self._refresh_status()
-        self._say(tr("Connecting to {host}:{port} ({kind})…", host=config.link.host,
-                     port=config.link.port, kind=link.kind))
+        self._say(_("Connecting to {host}:{port} ({kind})…").format(
+            host=config.link.host, port=config.link.port, kind=link.kind))
         self.run_worker(link.run(), group="link", exclusive=True)
 
     def on_link_event(self, link: Link, event: LinkEvent) -> None:
@@ -237,8 +254,8 @@ class HamrpktApp(App[None]):
     def _on_link_up(self, event: LinkEvent) -> None:
         self.link_state = "up"
         settings = self.link.config.link if self.link else self.config.link
-        self._say(tr("Link up with {host}:{port}", host=settings.host,
-                     port=settings.port), STYLE_OK, "ok")
+        self._say(_("Link up with {host}:{port}").format(host=settings.host, port=settings.port),
+                  STYLE_OK, "ok")
         if self._bpq_target:
             self.session = self._bpq_target
             self.session_start = dt.datetime.now(dt.UTC)
@@ -250,10 +267,10 @@ class HamrpktApp(App[None]):
         settings = self.link.config.link if self.link else self.config.link
         host, port = settings.host, settings.port
         if event.extra.get("failed_open"):
-            self._say(tr("Cannot reach {host}:{port}: {error}", host=host, port=port,
-                         error=event.text), STYLE_ERROR, "error")
+            self._say(_("Cannot reach {host}:{port}: {error}").format(
+                host=host, port=port, error=event.text), STYLE_ERROR, "error")
         elif event.text:
-            self._say(tr("Link lost: {error}", error=event.text), STYLE_ERROR, "error")
+            self._say(_("Link lost: {error}").format(error=event.text), STYLE_ERROR, "error")
         else:
             self._say(_("Link closed"), STYLE_SYSTEM)
         self.link_state = "offline"
@@ -278,7 +295,7 @@ class HamrpktApp(App[None]):
         self.session_start = dt.datetime.now(dt.UTC)
         if event.text:
             self.terminal.say(event.text, "dim")
-        self._say(tr("Connected to {call}", call=event.call), STYLE_OK, "ok")
+        self._say(_("Connected to {call}").format(call=event.call), STYLE_OK, "ok")
         self._open_session_log(event.call)
         self._refresh_status()
 
@@ -288,7 +305,7 @@ class HamrpktApp(App[None]):
         call = event.call or self.session
         if event.text:
             self.terminal.say(event.text, "dim")
-        self._say(tr("Disconnected from {call}", call=call), STYLE_SYSTEM, "warning")
+        self._say(_("Disconnected from {call}").format(call=call), STYLE_SYSTEM, "warning")
         self._end_session()
         self._refresh_status()
 
@@ -337,7 +354,7 @@ class HamrpktApp(App[None]):
             self._session_log = path.open("a", encoding="utf-8")
             stamp = f"{dt.datetime.now(dt.UTC):%Y-%m-%d %H:%M:%S} UTC"
             self._session_log.write(f"\n=== {stamp} {self.config.mycall} <> {call} ===\n")
-            self.terminal.say(tr("Session log: {path}", path=path), "dim")
+            self.terminal.say(_("Session log: {path}").format(path=path), "dim")
         except OSError:
             self._session_log = None
 
@@ -397,7 +414,7 @@ class HamrpktApp(App[None]):
         if name in ("c", "connect"):
             parsed = parse_connect(args, self.radio_port)
             if parsed is None:
-                self.entry.feedback(tr("Usage: {usage}", usage="/c [port] CALL [v DIGI …]"),
+                self.entry.feedback(_("Usage: {usage}").format(usage="/c [port] CALL [v DIGI …]"),
                                     "warning")
                 return
             self._connect(*parsed)
@@ -407,10 +424,10 @@ class HamrpktApp(App[None]):
             self._unproto(args)
         elif name == "port":
             if not args or not args[0].isdigit() or int(args[0]) < 1:
-                self.entry.feedback(tr("Usage: {usage}", usage="/port 1"), "warning")
+                self.entry.feedback(_("Usage: {usage}").format(usage="/port 1"), "warning")
                 return
             self.radio_port = int(args[0])
-            self.entry.feedback(tr("Port set to {port}", port=self.radio_port), "ok")
+            self.entry.feedback(_("Port set to {port}").format(port=self.radio_port), "ok")
             self._refresh_status()
         elif name in ("mon", "monitor"):
             self.action_toggle_monitor()
@@ -426,8 +443,9 @@ class HamrpktApp(App[None]):
         elif name in ("q", "quit", "exit"):
             self.action_quit()
         else:
-            self.entry.feedback(tr("Unknown command: {cmd}. /help lists them", cmd="/" + name),
-                                "error")
+            self.entry.feedback(
+                _("Unknown command: {cmd}. /help lists them").format(cmd="/" + name), "error"
+            )
 
     def _require_link(self) -> Link | None:
         if self.link is None or not self.link.is_open:
@@ -437,8 +455,9 @@ class HamrpktApp(App[None]):
 
     def _connect(self, call: str, via: list[str], port: int) -> None:
         if self.session:
-            self.entry.feedback(tr("Already connected to {call}: /d first", call=self.session),
-                                "warning")
+            self.entry.feedback(
+                _("Already connected to {call}: /d first").format(call=self.session), "warning"
+            )
             return
         if call.startswith("BPQ:"):
             self._connect_bpq(call.removeprefix("BPQ:"))
@@ -447,7 +466,7 @@ class HamrpktApp(App[None]):
         if link is None:
             return
         target = call + (" via " + ",".join(via) if via else "")
-        self._say(tr("Calling {call}…", call=target), STYLE_SYSTEM)
+        self._say(_("Calling {call}…").format(call=target), STYLE_SYSTEM)
         self.session_port = port
         link.connect(call, via, port)
         self._show_view("terminal")
@@ -466,7 +485,7 @@ class HamrpktApp(App[None]):
         settings = dataclasses.replace(self.config.link, type="telnet", port=bpq.port,
                                        user=bpq.user, password=bpq.password)
         command = bpq.command_for(call)
-        self._say(tr("Calling {call}…", call=f"bpq:{call}"), STYLE_SYSTEM)
+        self._say(_("Calling {call}…").format(call=f"bpq:{call}"), STYLE_SYSTEM)
         self.start_link(dataclasses.replace(self.config, link=settings),
                         [command] if command else [])
         self._bpq_target = f"bpq:{call}"
@@ -484,7 +503,7 @@ class HamrpktApp(App[None]):
         if link is None:
             return
         if len(args) < 2:
-            self.entry.feedback(tr("Usage: {usage}", usage="/ui DEST text"), "warning")
+            self.entry.feedback(_("Usage: {usage}").format(usage="/ui DEST text"), "warning")
             return
         if not link.supports_monitor:
             self.entry.feedback(_("The monitor needs an AGWPE link"), "warning")
@@ -661,7 +680,7 @@ class HamrpktApp(App[None]):
                 self.call_later(self._shutdown)
 
         self.push_screen(ConfirmScreen(
-            tr("Still connected to {call}. Disconnect and quit?", call=self.session),
+            _("Still connected to {call}. Disconnect and quit?").format(call=self.session),
             danger=True), done)
 
     async def _shutdown(self) -> None:

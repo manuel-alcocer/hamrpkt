@@ -20,7 +20,7 @@ import re
 import struct
 from dataclasses import dataclass
 
-from ..i18n import tr
+from ..i18n import N_, _
 from .base import Link, LinkEvent, decode_text
 
 HEADER = struct.Struct("<B3xcxBx10s10sI4x")
@@ -109,7 +109,7 @@ class AgwLink(Link):
         link = self.config.link
         if link.user:
             # LinBPQ asks remote AGWPE clients to log in with a node user.
-            self.sink(LinkEvent("info", tr("Logging in as {user}", user=link.user)))
+            self.sink(LinkEvent("info", _("Logging in as {user}").format(user=link.user)))
             data = link.user.encode()[:255].ljust(255, b"\0")
             data += link.password.encode()[:255].ljust(255, b"\0")
             self._send(Frame(0, "P", data=data))
@@ -148,18 +148,19 @@ class AgwLink(Link):
             self.sink(LinkEvent("monitor", decode_text(frame.data), own=kind in "Tt"))
         elif kind == "X":
             ok = bool(frame.data) and frame.data[0] == 1
-            message = ("Callsign {call} registered" if ok
-                       else "The node refused to register {call}")
-            self.sink(LinkEvent("info" if ok else "error", tr(message, call=self.mycall)))
+            message = (N_("Callsign {call} registered") if ok
+                       else N_("The node refused to register {call}"))
+            self.sink(LinkEvent("info" if ok else "error", _(message).format(call=self.mycall)))
         elif kind == "G":
             self.radio_ports = _parse_ports(decode_text(frame.data))
             if self.radio_ports:
-                self.sink(LinkEvent("info", tr("Radio ports: {ports}",
-                                                     ports=" · ".join(self.radio_ports))))
+                ports = " · ".join(self.radio_ports)
+                self.sink(LinkEvent("info", _("Radio ports: {ports}").format(ports=ports)))
         elif kind == "R" and len(frame.data) >= 8:
             major, minor = struct.unpack("<II", frame.data[:8])
-            self.sink(LinkEvent("info", tr("AGWPE server version {version}",
-                                                 version=f"{major}.{minor}")))
+            version = f"{major}.{minor}"
+            self.sink(LinkEvent("info", _("AGWPE server version {version}").format(
+                version=version)))
 
     # ------------------------------------------------------------ actions --
     def send_line(self, text: str, call: str = "", radio_port: int = 1) -> None:

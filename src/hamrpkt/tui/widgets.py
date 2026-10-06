@@ -13,7 +13,7 @@ from textual.reactive import reactive
 from textual.timer import Timer
 from textual.widgets import DataTable, Input, Label, RichLog, Static
 
-from ..i18n import _
+from ..i18n import N_, _
 
 # ------------------------------------------------------------ status line --
 
@@ -61,8 +61,11 @@ class StatusLine(Static):
 
 # ---------------------------------------------------------------- footer --
 
-HELP_HINT = "F1 Terminal · F2 Monitor · F3 Heard · Ctrl+Q Quit"
-SHORT_HINTS = ("F1 Terminal · F2 Monitor · F3 Heard", "F1 · F2 · F3")
+#: Shown at the right edge of the footer, translated where it is drawn.
+HELP_HINT = N_("F1 Terminal · F2 Monitor · F3 Heard · Ctrl+Q Quit")
+
+#: What is left of it when the terminal cannot hold the whole hint.
+SHORT_HINTS = (N_("F1 Terminal · F2 Monitor · F3 Heard"), "F1 · F2 · F3")
 
 
 @dataclass(slots=True)
@@ -192,7 +195,8 @@ class TextView(RichLog):
 # ------------------------------------------------------------ heard table --
 
 HEARD_COLUMNS: tuple[tuple[str, int | None], ...] = (
-    ("CALL", 12), ("LAST HEARD", 21), ("FRAMES", 8), ("PORT", 7), ("TO", 12), ("VIA", None),
+    (N_("CALL"), 12), (N_("LAST HEARD"), 21), (N_("FRAMES"), 8), (N_("PORT"), 7),
+    (N_("TO"), 12), (N_("VIA"), None),
 )
 
 

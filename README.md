@@ -108,8 +108,15 @@ Direwolf.
 
 Cada sesión queda registrada en `~/.local/share/hamrpkt/sessions/`.
 
-La interfaz sale en español si `LANG` empieza por `es`; `HAMRPKT_LANG=en` la
-fuerza en inglés.
+## Idiomas
+
+El programa está escrito en inglés y las traducciones van en
+`src/hamrpkt/locales/<idioma>/`, en archivos `.po` de gettext que se leen
+directamente, igual que en hamrlog. Por ahora solo hay español. El idioma se
+toma de `HAMRPKT_LANG` o, si no está, del sistema (`LANG`, o el idioma de la
+interfaz en Windows); `HAMRPKT_LANG=en` fuerza el inglés.
+`tests/test_i18n.py` falla si algún texto marcado con `_()` o `N_()` no
+tiene traducción.
 
 ## Desarrollo
 

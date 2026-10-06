@@ -12,7 +12,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, ScreenResultType
 from textual.widgets import Button, Input, Label, Static
 
-from ..i18n import _
+from ..i18n import N_, _
 
 
 class PanelScreen(ModalScreen[ScreenResultType]):
@@ -74,7 +74,7 @@ def _restore_keys(app: Any) -> None:
 class ConfirmScreen(PanelScreen[bool]):
     """Yes/no confirmation, defaulting to no."""
 
-    _keys = "←→ choose · Enter confirms · Y yes · N or Esc no"
+    _keys = N_("←→ choose · Enter confirms · Y yes · N or Esc no")
 
     BINDINGS = [
         Binding("escape", "no", "No"),
@@ -135,7 +135,7 @@ class FormScreen(PanelScreen[dict[str, str] | None]):
     ``validate`` may return an error message to keep the form open.
     """
 
-    _keys = "Tab next field · Enter or Ctrl+S save · Esc cancel"
+    _keys = N_("Tab next field · Enter or Ctrl+S save · Esc cancel")
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
