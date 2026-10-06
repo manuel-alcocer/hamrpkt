@@ -1,5 +1,8 @@
 # hamrpkt
 
+[![CI](https://github.com/manuel-alcocer/hamrpkt/actions/workflows/ci.yml/badge.svg)](https://github.com/manuel-alcocer/hamrpkt/actions/workflows/ci.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+
 Terminal de packet radio en modo texto, solo teclado, con el mismo aspecto que
 [hamrlog](https://github.com/manuel-alcocer/hamrlog): línea de estado arriba,
 un marco central, la línea de órdenes y el pie con reloj UTC y contadores.

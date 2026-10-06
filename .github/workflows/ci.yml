@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Same as hamrlog: the terminal has to behave the same on both.
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Install the project
+        run: uv sync --python ${{ matrix.python }} --extra dev
+
+      - name: Linter
+        run: uv run ruff check src tests
+
+      - name: Tests
+        run: uv run pytest -q
+
+  build-check:
+    name: The package builds and installs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build
+        run: uv build
+
+      - name: Install the wheel in a clean environment and try it
+        run: |
+          uv venv /tmp/clean
+          uv pip install --python /tmp/clean/bin/python dist/*.whl
+          /tmp/clean/bin/hamrpkt --version
+          # The stylesheet is package data read at import time: check the
+          # wheel really carries it.
+          /tmp/clean/bin/python -c "
+          from hamrpkt.tui.app import HamrpktApp
+          assert '#statusline' in HamrpktApp.CSS, 'no stylesheet in the wheel'
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/*
